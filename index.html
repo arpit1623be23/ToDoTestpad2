@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced To-Do App</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+        #taskList {
+            width: 50%;
+            border-right: 1px solid #333;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #1E1E1E;
+        }
+        #taskForm {
+            width: 50%;
+            padding: 20px;
+            background-color: #1E1E1E;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            background-color: #333;
+            color: #E0E0E0;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            resize: vertical;
+        }
+        .task {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #2A2A2A;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .task-text {
+            flex-grow: 1;
+            margin-left: 10px;
+            word-break: break-word;
+        }
+        .task.completed .task-text {
+            text-decoration: line-through;
+            color: #888;
+        }
+        .task-actions {
+            display: flex;
+            align-items: center;
+        }
+        .task-actions button {
+            background: none;
+            border: none;
+            color: #E0E0E0;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 18px;
+        }
+        .task-actions button:hover {
+            color: #FFD700;
+        }
+        .edit-input {
+            flex-grow: 1;
+            padding: 5px;
+            background-color: #333;
+            color: #E0E0E0;
+            border: none;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="taskList">
+        <h2>Tasks</h2>
+        <div id="tasks"></div>
+    </div>
+
+    <div id="taskForm">
+        <h2>Add Task</h2>
+        <textarea id="taskInput" placeholder="Enter your task and press Enter"></textarea>
+    </div>
+
+    <script>
+        // Task management class
+        class TaskManager {
+            constructor() {
+                this.tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                this.taskContainer = document.getElementById('tasks');
+                this.taskInput = document.getElementById('taskInput');
+
+                // Event listener for adding tasks
+                this.taskInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.addTask(this.taskInput.value.trim());
+                        this.taskInput.value = '';
+                    }
+                });
+
+                // Initial render of tasks
+                this.renderTasks();
+            }
+
+            // Save tasks to local storage
+            saveToLocalStorage() {
+                localStorage.setItem('tasks', JSON.stringify(this.tasks));
+            }
+
+            // Add a new task
+            addTask(taskText) {
+                if (!taskText) return;
+
+                const newTask = {
+                    id: Date.now(),
+                    text: taskText,
+                    completed: false
+                };
+
+                this.tasks.push(newTask);
+                this.saveToLocalStorage();
+                this.renderTasks();
+            }
+
+            // Render tasks to the DOM
+            renderTasks() {
+                this.taskContainer.innerHTML = '';
+                this.tasks.forEach(task => this.createTaskElement(task));
+            }
+
+            // Create task element
+            createTaskElement(task) {
+                const taskElement = document.createElement('div');
+                taskElement.classList.add('task');
+                if (task.completed) taskElement.classList.add('completed');
+
+                // Checkbox
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.completed;
+                checkbox.addEventListener('change', () => this.toggleTaskCompletion(task.id));
+
+                // Task text
+                const taskText = document.createElement('span');
+                taskText.classList.add('task-text');
+                taskText.textContent = task.text;
+
+                // Actions container
+                const actionsContainer = document.createElement('div');
+                actionsContainer.classList.add('task-actions');
+
+                // Edit button
+                const editButton = document.createElement('button');
+                editButton.innerHTML = '✏️';
+                editButton.addEventListener('click', () => this.editTask(task.id, taskText));
+
+                // Delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.innerHTML = '❌';
+                deleteButton.addEventListener('click', () => this.deleteTask(task.id));
+
+                // Assemble task element
+                actionsContainer.append(editButton, deleteButton);
+                taskElement.append(checkbox, taskText, actionsContainer);
+                this.taskContainer.appendChild(taskElement);
+            }
+
+            // Toggle task completion
+            toggleTaskCompletion(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.completed = !task.completed;
+                    this.saveToLocalStorage();
+                    this.renderTasks();
+                }
+            }
+
+            // Edit task
+            editTask(taskId, taskTextElement) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                // Create edit input
+                const editInput = document.createElement('input');
+                editInput.type = 'text';
+                editInput.classList.add('edit-input');
+                editInput.value = task.text;
+
+                // Replace text with input
+                taskTextElement.replaceWith(editInput);
+                editInput.focus();
+
+                // Save on blur or enter
+                editInput.addEventListener('blur', saveEdit);
+                editInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') saveEdit();
+                });
+
+                const self = this;
+                function saveEdit() {
+                    const newText = editInput.value.trim();
+                    if (newText) {
+                        task.text = newText;
+                        self.saveToLocalStorage();
+                        self.renderTasks();
+                    }
+                }
+            }
+
+            // Delete task
+            deleteTask(taskId) {
+                this.tasks = this.tasks.filter(task => task.id !== taskId);
+                this.saveToLocalStorage();
+                this.renderTasks();
+            }
+        }
+
+        // Initialize the task manager
+        const taskManager = new TaskManager();
+    </script>
+</body>
+</html>
